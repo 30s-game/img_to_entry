@@ -2,91 +2,131 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Entry 16:9 Fixed-Length Converter</title>
+    <title>Entry Full-Pixel Converter</title>
     <style>
-        body { background-color: #0f0f0f; color: #ffffff; font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 30px; }
-        .main-card { background: #1a1a1a; padding: 25px; border-radius: 12px; width: 100%; max-width: 700px; border: 1px solid #333; }
-        h2 { color: #00ffcc; font-weight: 400; font-size: 1.2rem; }
-        .input-group { margin: 20px 0; border-top: 1px solid #333; padding-top: 20px; }
-        input[type="file"] { color: #aaa; }
-        button { background: #00ffcc; color: #000; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; }
-        textarea { width: 100%; height: 350px; margin-top: 20px; background: #050505; color: #00ffcc; border: 1px solid #444; font-family: 'Consolas', monospace; font-size: 12px; word-break: break-all; padding: 10px; }
-        .desc { font-size: 0.85rem; color: #777; margin-top: 10px; }
+        body { 
+            background-color: #0d1117; 
+            color: #c9d1d9; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 50px; 
+            margin: 0;
+        }
+        .container { 
+            background: #161b22; 
+            padding: 35px; 
+            border-radius: 15px; 
+            width: 90%; 
+            max-width: 850px; 
+            border: 1px solid #30363d;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        h1 { color: #58a6ff; font-weight: 600; margin-bottom: 25px; }
+        .info {
+            background: #010409;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            font-size: 0.85rem;
+            color: #8b949e;
+            text-align: left;
+            line-height: 1.5;
+        }
+        input[type="file"] { margin: 20px 0; font-size: 0.9rem; }
+        button { 
+            background: #238636; 
+            color: #ffffff; 
+            border: none; 
+            padding: 14px 40px; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-weight: 600;
+            transition: 0.2s;
+        }
+        button:hover { background: #2ea043; }
+        textarea { 
+            width: 100%; 
+            height: 350px; 
+            margin-top: 30px; 
+            background: #0d1117; 
+            color: #d2a8ff; 
+            border: 1px solid #30363d; 
+            border-radius: 8px; 
+            font-family: 'Cascadia Code', 'Consolas', monospace; 
+            font-size: 11px; 
+            word-break: break-all; 
+            padding: 15px;
+            outline: none;
+        }
     </style>
 </head>
 <body>
 
-<div class="main-card">
-    <h2>ENTRY IMAGE INTERPRETER (16:9)</h2>
-    <p class="desc">엔트리 좌표계: X(-240~240), Y(-135~135) 기준</p>
+<div class="container">
+    <h1>ENTRY FULL-PIXEL DATA GENERATOR</h1>
     
-    <div class="input-group">
-        <input type="file" id="imgFile" accept="image/*"><br><br>
-        <label>샘플링 밀도 (낮을수록 점이 적음): </label>
-        <input type="number" id="density" value="40" min="10" max="100" style="width:50px;">
+    <div class="info">
+        • <b>해상도:</b> 480 x 270 (전체 좌표 포함)<br>
+        • <b>데이터 규격:</b> [XXX][YYY]C[HEX] (항목당 14자 고정)<br>
+        • <b>총 글자 수:</b> 1,814,400자 (누락 없는 고정 데이터)
     </div>
 
-    <button onclick="generateEntryCode()">코드 추출 시작</button>
+    <input type="file" id="imageInput" accept="image/*">
+    <br>
+    <button onclick="processImage()">데이터 생성</button>
     
-    <textarea id="output" readonly></textarea>
-    <p class="desc">형식: [XXX][YYY]C[HEX] (각 좌표 3자리 고정)</p>
+    <textarea id="output" readonly placeholder="파일을 선택하고 버튼을 누르면 코드가 생성됩니다."></textarea>
 </div>
 
-<canvas id="hiddenCanvas" style="display:none;"></canvas>
+<canvas id="mainCanvas" width="480" height="270" style="display:none;"></canvas>
 
 <script>
-    function generateEntryCode() {
-        const file = document.getElementById('imgFile').files[0];
-        const density = parseInt(document.getElementById('density').value);
-        if (!file) return alert("이미지를 업로드하십시오.");
+    function processImage() {
+        const fileInput = document.getElementById('imageInput');
+        if (!fileInput.files[0]) return alert("파일을 선택해 주십시오.");
 
         const reader = new FileReader();
         reader.onload = function(e) {
             const img = new Image();
             img.onload = function() {
-                const canvas = document.getElementById('hiddenCanvas');
+                const canvas = document.getElementById('mainCanvas');
                 const ctx = canvas.getContext('2d');
-
-                // 엔트리 16:9 규격 설정
-                const targetW = density * 1.6; 
-                const targetH = density * 0.9; 
-                canvas.width = targetW;
-                canvas.height = targetH;
-
-                // Center Crop & Resize
-                ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, targetW, targetH);
                 
-                const imgData = ctx.getImageData(0, 0, targetW, targetH).data;
-                let resultText = "";
+                // 엔트리 16:9 규격으로 강제 리사이징 후 그리기
+                ctx.clearRect(0, 0, 480, 270);
+                ctx.drawImage(img, 0, 0, 480, 270);
+                
+                const imgData = ctx.getImageData(0, 0, 480, 270).data;
+                let codeResult = "";
 
-                for (let y = 0; y < targetH; y++) {
-                    for (let x = 0; x < targetW; x++) {
-                        const i = (y * targetW + x) * 4;
-                        if (imgData[i+3] < 128) continue; // 투명 픽셀 제외
+                // 모든 픽셀 순회 (투명도 제외 로직 삭제)
+                for (let y = 0; y < 270; y++) {
+                    for (let x = 0; x < 480; x++) {
+                        const i = (y * 480 + x) * 4;
 
-                        // 엔트리 좌표로 변환 (X: -240~240, Y: -135~135)
-                        // 실제 좌표값에 300을 더해 양수로 만들거나, 부호를 포함한 3자리를 만듭니다.
-                        // 여기서는 단순 절대 위치를 위해 0~480, 0~270 범위를 3자리로 맞춥니다.
-                        const entryX = Math.floor((x / targetW) * 480 - 240);
-                        const entryY = Math.floor(135 - (y / targetH) * 270);
-
-                        // 3자리 고정 (음수 대응을 위해 Offset 300을 더해 000~600 범위로 변환 추천)
-                        // 혹은 단순 문자열 처리를 위해 부호 포함 3자리 처리
-                        const padX = String(entryX + 240).padStart(3, '0'); // 000 ~ 480
-                        const padY = String(entryY + 135).padStart(3, '0'); // 000 ~ 270
+                        // 좌표 세 자리 패딩 (000~479 / 000~269)
+                        const padX = x.toString().padStart(3, '0');
+                        const padY = y.toString().padStart(3, '0');
                         
+                        // 색상 추출 (RGB)
                         const r = imgData[i].toString(16).padStart(2, '0');
                         const g = imgData[i+1].toString(16).padStart(2, '0');
                         const b = imgData[i+2].toString(16).padStart(2, '0');
+                        const hex = `#${r}${g}${b}`;
 
-                        resultText += `${padX}${padY}C#${r}${g}${b}`;
+                        // (x3)(y3)C(hex) 형식 결합
+                        codeResult += `${padX}${padY}C${hex}`;
                     }
                 }
-                document.getElementById('output').value = resultText;
+                document.getElementById('output').value = codeResult;
+                alert("모든 좌표에 대한 코드 생성이 완료되었습니다.");
             };
             img.src = e.target.result;
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(fileInput.files[0]);
     }
 </script>
 
