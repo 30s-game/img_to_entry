@@ -32,8 +32,9 @@
                     ctx.drawImage(img, 0, 0, 480, 270);
                     const data = ctx.getImageData(0, 0, 480, 270).data;
                     let res = "";
-                    for (let y = 0; y < 270; y += 2) {
-                        for (let x = 0; x < 480; x += 2) {
+                    // y와 x를 3씩 증가시켜 데이터 추출
+                    for (let y = 0; y < 270; y += 3) {
+                        for (let x = 0; x < 480; x += 3) {
                             const i = (y * 480 + x) * 4;
                             const px = x.toString().padStart(3, '0');
                             const py = y.toString().padStart(3, '0');
