@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Entry 16:9 Fixed-Length Converter</title>
+    <style>
+        body { background-color: #0f0f0f; color: #ffffff; font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 30px; }
+        .main-card { background: #1a1a1a; padding: 25px; border-radius: 12px; width: 100%; max-width: 700px; border: 1px solid #333; }
+        h2 { color: #00ffcc; font-weight: 400; font-size: 1.2rem; }
+        .input-group { margin: 20px 0; border-top: 1px solid #333; padding-top: 20px; }
+        input[type="file"] { color: #aaa; }
+        button { background: #00ffcc; color: #000; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        textarea { width: 100%; height: 350px; margin-top: 20px; background: #050505; color: #00ffcc; border: 1px solid #444; font-family: 'Consolas', monospace; font-size: 12px; word-break: break-all; padding: 10px; }
+        .desc { font-size: 0.85rem; color: #777; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="main-card">
+    <h2>ENTRY IMAGE INTERPRETER (16:9)</h2>
+    <p class="desc">엔트리 좌표계: X(-240~240), Y(-135~135) 기준</p>
+    
+    <div class="input-group">
+        <input type="file" id="imgFile" accept="image/*"><br><br>
+        <label>샘플링 밀도 (낮을수록 점이 적음): </label>
+        <input type="number" id="density" value="40" min="10" max="100" style="width:50px;">
+    </div>
+
+    <button onclick="generateEntryCode()">코드 추출 시작</button>
+    
+    <textarea id="output" readonly></textarea>
+    <p class="desc">형식: [XXX][YYY]C[HEX] (각 좌표 3자리 고정)</p>
+</div>
+
+<canvas id="hiddenCanvas" style="display:none;"></canvas>
+
+<script>
+    function generateEntryCode() {
+        const file = document.getElementById('imgFile').files[0];
+        const density = parseInt(document.getElementById('density').value);
+        if (!file) return alert("이미지를 업로드하십시오.");
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.getElementById('hiddenCanvas');
+                const ctx = canvas.getContext('2d');
+
+                // 엔트리 16:9 규격 설정
+                const targetW = density * 1.6; 
+                const targetH = density * 0.9; 
+                canvas.width = targetW;
+                canvas.height = targetH;
+
+                // Center Crop & Resize
+                ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, targetW, targetH);
+                
+                const imgData = ctx.getImageData(0, 0, targetW, targetH).data;
+                let resultText = "";
+
+                for (let y = 0; y < targetH; y++) {
+                    for (let x = 0; x < targetW; x++) {
+                        const i = (y * targetW + x) * 4;
+                        if (imgData[i+3] < 128) continue; // 투명 픽셀 제외
+
+                        // 엔트리 좌표로 변환 (X: -240~240, Y: -135~135)
+                        // 실제 좌표값에 300을 더해 양수로 만들거나, 부호를 포함한 3자리를 만듭니다.
+                        // 여기서는 단순 절대 위치를 위해 0~480, 0~270 범위를 3자리로 맞춥니다.
+                        const entryX = Math.floor((x / targetW) * 480 - 240);
+                        const entryY = Math.floor(135 - (y / targetH) * 270);
+
+                        // 3자리 고정 (음수 대응을 위해 Offset 300을 더해 000~600 범위로 변환 추천)
+                        // 혹은 단순 문자열 처리를 위해 부호 포함 3자리 처리
+                        const padX = String(entryX + 240).padStart(3, '0'); // 000 ~ 480
+                        const padY = String(entryY + 135).padStart(3, '0'); // 000 ~ 270
+                        
+                        const r = imgData[i].toString(16).padStart(2, '0');
+                        const g = imgData[i+1].toString(16).padStart(2, '0');
+                        const b = imgData[i+2].toString(16).padStart(2, '0');
+
+                        resultText += `${padX}${padY}C#${r}${g}${b}`;
+                    }
+                }
+                document.getElementById('output').value = resultText;
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+</script>
+
+</body>
+</html>
